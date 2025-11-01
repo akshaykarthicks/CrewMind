@@ -246,17 +246,7 @@ The system generates comprehensive plans like:
 3. **Month 5-6**: Advanced projects and portfolio
 ```
 
-## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🙏 Acknowledgments
 
@@ -264,13 +254,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Google Gemini**: Advanced language model
 - **Streamlit**: Interactive web interface
 - **Community**: Contributors and users
-
-## 📞 Support
-
-- **Issues**: Report bugs and request features via GitHub Issues
-- **Documentation**: Check the `/docs` folder for detailed guides
-- **Community**: Join discussions in GitHub Discussions
-
+=
 ---
 
 **Ready to achieve your goals?** 🚀
