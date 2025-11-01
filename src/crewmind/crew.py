@@ -38,12 +38,6 @@ class Crewmind():
         )
 
     @task
-    def progress_monitoring_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['progress_monitoring_task'], # type: ignore[index]
-        )
-
-    @task
     def weekly_schedule_task(self) -> Task:
         return Task(
             config=self.tasks_config['weekly_schedule_task'], # type: ignore[index]
