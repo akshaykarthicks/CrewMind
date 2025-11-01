@@ -1,6 +1,8 @@
 # 🎯 Goal Tracker Crew
 
 An AI-powered goal setting and planning assistant built with CrewAI that helps you transform your aspirations into actionable, achievable plans.
+<img width="1904" height="1064" alt="image" src="https://github.com/user-attachments/assets/d980d236-a76d-44af-b9c5-a3d4dffee9e8" />
+
 
 ![Goal Tracker Crew](https://img.shields.io/badge/AI-Powered-blue) ![CrewAI](https://img.shields.io/badge/CrewAI-Framework-green) ![Gemini](https://img.shields.io/badge/Gemini-1.5%20Flash-orange) ![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-red)
 
