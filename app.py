@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 import time
 import re
+import pandas as pd
 
 # Add the src directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -581,61 +582,304 @@ def display_formatted_plan(content):
             st.caption(f"• {title}")
 
 def display_weekly_breakdown(content):
-    """Extracts and displays a weekly breakdown from the plan in a concise format."""
-    st.markdown("#### Weekly Schedule")
+    """Extracts and displays a weekly breakdown from the plan in proper table format."""
+    st.markdown("#### 📅 Daily Work Schedule")
     
-    # Regex to find "Week X" or "Week X:" sections
-    weekly_sections = re.findall(r'(Week\s*\d+[:\s].*?)(?=\nWeek\s*\d+|##|\*\*[A-Z]|\Z)', content, re.DOTALL | re.IGNORECASE)
+    # Try to extract structured schedule data
+    schedule_data = extract_schedule_data(content)
+    
+    if schedule_data:
+        display_schedule_table(schedule_data)
+    else:
+        # Fallback to parsing weekly sections
+        display_parsed_weekly_sections(content)
 
+def extract_schedule_data(content):
+    """Extract structured schedule data from the AI response."""
+    schedule_data = []
+    
+    # Look for weekly patterns first
+    weekly_sections = re.findall(r'(Week\s*\d+[:\s].*?)(?=\nWeek\s*\d+|##|\*\*[A-Z]|\Z)', content, re.DOTALL | re.IGNORECASE)
+    
     if not weekly_sections:
-        # Try alternative patterns: "Month", numbered weeks, or timeline markers
+        # Try alternative patterns: "Month", "Phase", or numbered sections
         weekly_sections = re.findall(r'((?:Week|Month|Phase)\s*\d+[:\s].*?)(?=\n(?:Week|Month|Phase)\s*\d+|##|\Z)', content, re.DOTALL | re.IGNORECASE)
     
-    if not weekly_sections:
-        st.info("📅 Weekly timeline details will appear here. Check the Full Action Plan tab for complete information.")
-        return
-
-    for i, week_content in enumerate(weekly_sections):
-        week_content = week_content.strip()
-        if len(week_content) < 20:
-            continue
+    if weekly_sections:
+        for week_content in weekly_sections:
+            week_match = re.search(r'(?:Week|Month|Phase)\s*(\d+)', week_content, re.IGNORECASE)
+            week_num = week_match.group(1) if week_match else str(len(schedule_data) + 1)
             
-        # Extract the title - clean and shorten
-        title_match = re.search(r'((?:Week|Month|Phase)\s*\d+[:\s]?[^\n]*)', week_content, re.IGNORECASE)
-        title = title_match.group(1).strip() if title_match else f"Week {i+1}"
-        title = re.sub(r'\*\*', '', title)  # Remove bold formatting
-        title = re.sub(r':\s*$', '', title)  # Remove trailing colon
+            # Extract tasks from this week
+            tasks = extract_tasks_from_text(week_content)
+            
+            # Combine all tasks for this week into a single entry
+            if tasks:
+                combined_tasks = " • ".join(tasks[:5])  # Limit to 5 main tasks
+                if len(tasks) > 5:
+                    combined_tasks += f" • ... and {len(tasks) - 5} more tasks"
+                
+                schedule_data.append({
+                    'week': f"Week {week_num}",
+                    'tasks': combined_tasks,
+                    'duration': calculate_weekly_duration(tasks),
+                    'priority': get_week_priority(tasks),
+                    'focus': extract_week_focus(week_content)
+                })
+    
+    # If no weekly sections found, create generic weekly breakdown
+    if not schedule_data:
+        # Try to extract any structured content and divide into weeks
+        all_tasks = extract_tasks_from_text(content)
+        if all_tasks:
+            # Group tasks into weeks
+            tasks_per_week = max(3, len(all_tasks) // 4) if len(all_tasks) > 4 else len(all_tasks)
+            
+            for week_num in range(1, 5):  # Create up to 4 weeks
+                start_idx = (week_num - 1) * tasks_per_week
+                end_idx = min(start_idx + tasks_per_week, len(all_tasks))
+                
+                if start_idx < len(all_tasks):
+                    week_tasks = all_tasks[start_idx:end_idx]
+                    combined_tasks = " • ".join(week_tasks)
+                    
+                    schedule_data.append({
+                        'week': f"Week {week_num}",
+                        'tasks': combined_tasks,
+                        'duration': calculate_weekly_duration(week_tasks),
+                        'priority': get_week_priority(week_tasks),
+                        'focus': f"Focus area for week {week_num}"
+                    })
+    
+    return schedule_data[:8]  # Limit to 8 weeks max
+
+def extract_tasks_from_text(text):
+    """Extract individual tasks from text content."""
+    # Look for bullet points, numbered lists, or line breaks
+    tasks = []
+    
+    # Try bullet points first
+    bullet_tasks = re.findall(r'[-*•]\s+([^\n]+)', text)
+    if bullet_tasks:
+        tasks.extend(bullet_tasks)
+    
+    # Try numbered lists
+    if not tasks:
+        numbered_tasks = re.findall(r'\d+[.)]\s+([^\n]+)', text)
+        tasks.extend(numbered_tasks)
+    
+    # Fallback: split by sentences or lines
+    if not tasks:
+        lines = [line.strip() for line in text.split('\n') if line.strip() and len(line.strip()) > 10]
+        tasks = lines[:10]  # Limit to reasonable number
+    
+    return [clean_task_text(task) for task in tasks if task.strip()]
+
+def clean_task_text(text):
+    """Clean and format task text."""
+    # Remove excessive whitespace and formatting
+    text = re.sub(r'\s+', ' ', text.strip())
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)  # Remove bold
+    text = re.sub(r'[#*_`]', '', text)  # Remove markdown
+    
+    # Limit length
+    if len(text) > 100:
+        text = text[:97] + "..."
+    
+    return text
+
+def extract_duration(text):
+    """Extract time duration from task text."""
+    # Look for time patterns
+    time_patterns = [
+        r'(\d+)\s*(?:hours?|hrs?|h)',
+        r'(\d+)\s*(?:minutes?|mins?|m)',
+        r'(\d+)-(\d+)\s*(?:hours?|hrs?)',
+    ]
+    
+    for pattern in time_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            if len(match.groups()) == 1:
+                return f"{match.group(1)}h"
+            else:
+                return f"{match.group(1)}-{match.group(2)}h"
+    
+    # Default durations based on task complexity
+    if len(text) > 80:
+        return "2-3h"
+    elif len(text) > 40:
+        return "1-2h"
+    else:
+        return "30-60m"
+
+def extract_priority(text):
+    """Extract or assign priority level."""
+    text_lower = text.lower()
+    
+    if any(word in text_lower for word in ['urgent', 'critical', 'important', 'priority', 'must']):
+        return "🔴 High"
+    elif any(word in text_lower for word in ['review', 'practice', 'continue', 'maintain']):
+        return "🟡 Medium"
+    else:
+        return "🟢 Normal"
+
+def calculate_weekly_duration(tasks):
+    """Calculate total weekly duration from tasks."""
+    total_hours = 0
+    
+    for task in tasks:
+        # Extract hours from each task
+        time_patterns = [
+            r'(\d+)\s*(?:hours?|hrs?|h)',
+            r'(\d+)\s*(?:minutes?|mins?|m)',
+        ]
         
-        # Get content after title
-        content_start = week_content.find('\n') if '\n' in week_content else len(week_content)
-        week_body = week_content[content_start:].strip()
-        
-        # Extract bullet points or numbered items
-        items = re.findall(r'[-*•]\s+([^\n]+(?:\n(?![-*•\d])[^\n]+)*)', week_body, re.MULTILINE)
-        if not items:
-            # Try numbered lists
-            items = re.findall(r'\d+[.)]\s+([^\n]+(?:\n(?!\d+[.)])[^\n]+)*)', week_body, re.MULTILINE)
-        
-        if items:
-            # Show as compact list
-            st.markdown(f'**{title}**')
-            for item in items[:5]:  # Limit to 5 items per week
-                item_clean = re.sub(r'\s+', ' ', item.strip()[:150])  # Limit item length
-                if len(item) > 150:
-                    item_clean += "..."
-                st.markdown(f"  • {item_clean}")
-            if len(items) > 5:
-                st.caption(f"  ... and {len(items) - 5} more items")
-        else:
-            # Fallback: show shortened text
-            week_body_short = re.sub(r'\s+', ' ', week_body[:200])
-            if len(week_body) > 200:
-                week_body_short += "..."
-            st.markdown(f'**{title}**')
-            st.markdown(f"{week_body_short}")
-        
-        if i < len(weekly_sections) - 1:
-            st.markdown("<br>", unsafe_allow_html=True)
+        for pattern in time_patterns:
+            matches = re.findall(pattern, task, re.IGNORECASE)
+            for match in matches:
+                if 'min' in pattern or 'm' in pattern:
+                    total_hours += int(match) / 60
+                else:
+                    total_hours += int(match)
+    
+    # If no specific times found, estimate based on task count and complexity
+    if total_hours == 0:
+        avg_task_time = 1.5  # 1.5 hours per task average
+        total_hours = len(tasks) * avg_task_time
+    
+    if total_hours < 5:
+        return "3-5h/week"
+    elif total_hours < 10:
+        return "5-10h/week"
+    elif total_hours < 15:
+        return "10-15h/week"
+    else:
+        return "15+h/week"
+
+def get_week_priority(tasks):
+    """Determine overall priority for the week based on tasks."""
+    high_count = sum(1 for task in tasks if extract_priority(task) == "🔴 High")
+    medium_count = sum(1 for task in tasks if extract_priority(task) == "🟡 Medium")
+    
+    if high_count > len(tasks) * 0.5:
+        return "🔴 High"
+    elif medium_count > len(tasks) * 0.3:
+        return "🟡 Medium"
+    else:
+        return "🟢 Normal"
+
+def extract_week_focus(week_content):
+    """Extract the main focus area for the week."""
+    # Look for focus keywords or themes
+    focus_patterns = [
+        r'focus(?:\s+on)?[:\s]+([^\n.]+)',
+        r'main(?:\s+goal)?[:\s]+([^\n.]+)',
+        r'priority[:\s]+([^\n.]+)',
+        r'theme[:\s]+([^\n.]+)'
+    ]
+    
+    for pattern in focus_patterns:
+        match = re.search(pattern, week_content, re.IGNORECASE)
+        if match:
+            focus = match.group(1).strip()
+            return clean_task_text(focus)[:50]
+    
+    # Fallback: extract first meaningful sentence
+    sentences = re.findall(r'[A-Z][^.!?]*[.!?]', week_content)
+    if sentences:
+        return clean_task_text(sentences[0])[:50]
+    
+    return "Weekly goals and tasks"
+
+def display_schedule_table(schedule_data):
+    """Display schedule data in a proper Streamlit table."""
+    if not schedule_data:
+        st.info("📅 No structured schedule data found.")
+        return
+    
+    # Create DataFrame for better table display
+    df = pd.DataFrame(schedule_data)
+    
+    # Rename columns for better display
+    df.columns = ['📅 Week', '📋 Key Tasks', '⏰ Time Commitment', '🎯 Priority', '🎯 Focus Area']
+    
+    # Display the table with custom styling
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "📅 Week": st.column_config.TextColumn(width="small"),
+            "📋 Key Tasks": st.column_config.TextColumn(width="large"),
+            "⏰ Time Commitment": st.column_config.TextColumn(width="small"),
+            "🎯 Priority": st.column_config.TextColumn(width="small"),
+            "🎯 Focus Area": st.column_config.TextColumn(width="medium"),
+        }
+    )
+    
+    # Add summary metrics
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Weeks", len(schedule_data))
+    with col2:
+        high_priority = len([item for item in schedule_data if "High" in item['priority']])
+        st.metric("High Priority Weeks", high_priority)
+    with col3:
+        # Calculate average weekly commitment
+        avg_commitment = "5-10h/week"  # Default
+        if schedule_data:
+            commitments = [item['duration'] for item in schedule_data]
+            if any("15+" in c for c in commitments):
+                avg_commitment = "10-15h/week"
+            elif any("10-15" in c for c in commitments):
+                avg_commitment = "8-12h/week"
+        st.metric("Avg. Weekly Time", avg_commitment)
+
+def display_parsed_weekly_sections(content):
+    """Fallback method to display weekly sections when structured data isn't available."""
+    st.info("📅 Displaying weekly overview - for detailed daily breakdown, the AI response needs more structured format.")
+    
+    # Find weekly sections
+    weekly_sections = re.findall(r'(Week\s*\d+[:\s].*?)(?=\nWeek\s*\d+|##|\*\*[A-Z]|\Z)', content, re.DOTALL | re.IGNORECASE)
+    
+    if not weekly_sections:
+        weekly_sections = re.findall(r'((?:Week|Month|Phase)\s*\d+[:\s].*?)(?=\n(?:Week|Month|Phase)\s*\d+|##|\Z)', content, re.DOTALL | re.IGNORECASE)
+    
+    if weekly_sections:
+        for i, week_content in enumerate(weekly_sections):
+            week_content = week_content.strip()
+            if len(week_content) < 20:
+                continue
+                
+            # Extract the title
+            title_match = re.search(r'((?:Week|Month|Phase)\s*\d+[:\s]?[^\n]*)', week_content, re.IGNORECASE)
+            title = title_match.group(1).strip() if title_match else f"Week {i+1}"
+            title = re.sub(r'\*\*', '', title)
+            title = re.sub(r':\s*$', '', title)
+            
+            # Get content after title
+            content_start = week_content.find('\n') if '\n' in week_content else len(week_content)
+            week_body = week_content[content_start:].strip()
+            
+            # Extract tasks
+            items = re.findall(r'[-*•]\s+([^\n]+)', week_body)
+            if not items:
+                items = re.findall(r'\d+[.)]\s+([^\n]+)', week_body)
+            
+            if items:
+                with st.expander(f"**{title}**", expanded=True):
+                    for item in items:
+                        item_clean = re.sub(r'\s+', ' ', item.strip())
+                        st.markdown(f"• {item_clean}")
+            else:
+                st.markdown(f"**{title}**")
+                week_body_short = re.sub(r'\s+', ' ', week_body[:200])
+                if len(week_body) > 200:
+                    week_body_short += "..."
+                st.markdown(week_body_short)
+    else:
+        st.info("📅 Weekly timeline details will appear here. Check the Full Action Plan tab for complete information.")
 
 def display_success_tips(content):
     """Extracts and displays success tips from the plan in a concise format."""
