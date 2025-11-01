@@ -1,0 +1,23 @@
+[project]
+name = "crewmind"
+version = "0.1.0"
+description = "CrewMind using crewAI"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "crewai[tools]>=0.152.0,<1.0.0"
+]
+
+[project.scripts]
+crewmind = "crewmind.main:run"
+run_crew = "crewmind.main:run"
+train = "crewmind.main:train"
+replay = "crewmind.main:replay"
+test = "crewmind.main:test"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "crew"
