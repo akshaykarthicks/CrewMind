@@ -12,30 +12,25 @@ goal_setting_task:
 
 weekly_schedule_task:
   description: >
-    Design a detailed weekly schedule for achieving "{{user_goal}}" within {{timeline}}. Create a TABLE for each week 
-    showing Monday-Sunday with columns for Morning/Afternoon/Evening activities and Key Tasks. Work around existing 
+    Design a detailed weekly schedule for achieving "{{user_goal}}" within {{timeline}}. Create a markdown table for each week
+    showing Monday-Sunday with columns for Morning, Afternoon, Evening activities, and Key Tasks. Work around existing
     commitments: {{current_commitments}} and optimize for {{preferred_schedule}} timing. Allocate the available 
     {{available_time}} effectively while considering {{difficulty_preference}} challenge level and {{motivation_level}} energy.
   expected_output: >
-    A comprehensive weekly schedule in TABLE format for "{{user_goal}}" with:
+    A comprehensive weekly schedule in a markdown table format for "{{user_goal}}". Each week should be a separate table with a clear header.
     
-    **Week 1**
-    | Day | Morning | Afternoon | Evening | Key Tasks |
-    |-----|---------|-----------|---------|-----------|
-    | Monday | [specific activities with times] | [specific activities] | [specific activities] | [2-3 key tasks] |
-    | Tuesday | [specific activities with times] | [specific activities] | [specific activities] | [2-3 key tasks] |
-    | Wednesday | [specific activities with times] | [specific activities] | [specific activities] | [2-3 key tasks] |
-    | Thursday | [specific activities with times] | [specific activities] | [specific activities] | [2-3 key tasks] |
-    | Friday | [specific activities with times] | [specific activities] | [specific activities] | [2-3 key tasks] |
-    | Saturday | [specific activities with times] | [specific activities] | [specific activities] | [2-3 key tasks] |
-    | Sunday | [specific activities with times] | [specific activities] | [specific activities] | [2-3 key tasks] |
+    ### Week 1
+    | Day       | Morning                 | Afternoon               | Evening                 | Key Tasks                 |
+    |-----------|-------------------------|-------------------------|-------------------------|---------------------------|
+    | Monday    | [specific activities]   | [specific activities]   | [specific activities]   | [2-3 key tasks]           |
+    | Tuesday   | [specific activities]   | [specific activities]   | [specific activities]   | [2-3 key tasks]           |
+    | Wednesday | [specific activities]   | [specific activities]   | [specific activities]   | [2-3 key tasks]           |
+    | Thursday  | [specific activities]   | [specific activities]   | [specific activities]   | [2-3 key tasks]           |
+    | Friday    | [specific activities]   | [specific activities]   | [specific activities]   | [2-3 key tasks]           |
+    | Saturday  | [specific activities]   | [specific activities]   | [specific activities]   | [2-3 key tasks]           |
+    | Sunday    | [specific activities]   | [specific activities]   | [specific activities]   | [Review and plan]         |
     
-    Create this table for EACH week based on {{timeline}}. Include:
-    - Specific time blocks during {{preferred_schedule}} periods
-    - Integration with {{current_commitments}}
-    - {{available_time}} allocation per day
-    - Energy-matched activities for {{motivation_level}}
-    - Daily habits supporting {{goal_type}} goal
+    Repeat this table format for each week in the {{timeline}}. Ensure the markdown is clean and well-formatted.
   agent: planner_agent
   context: [goal_setting_task]
 
